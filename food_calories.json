@@ -13,5 +13,5 @@
   { "korean": "순두부찌개", "english": "sundubu-jjigae",  "kcal_per_serving": 250, "serving_size_g": 400, "kcal_per_100g": 63,  "source": "estimate", "note": "MFDS 25 kcal/100g yields only 100 kcal which seems too low for typical restaurant serving; used estimated value" },
   { "korean": "갈비탕",     "english": "galbitang",       "kcal_per_serving": 400, "serving_size_g": 600, "kcal_per_100g": 67,  "source": "estimate", "note": "MFDS 33 kcal/100g (broth-heavy measurement) yields 198 kcal; actual serving with beef and noodles is closer to 400 kcal" },
   { "korean": "잡채",       "english": "japchae",         "kcal_per_serving": 258, "serving_size_g": 200, "kcal_per_100g": 129, "source": "MFDS" },
-  { "korean": "부대찌개",   "english": "budae-jjigae",    "kcal_per_serving": 340, "serving_size_g": 500, "kcal_per_100g": 68,  "source": "MFDS" }
+  { "korean": "짜장면",     "english": "jjajangmyeon",    "kcal_per_serving": 765, "serving_size_g": 500, "kcal_per_100g": 153, "source": "MFDS", "note": "Replaced 부대찌개 due to unavailability in AI Hub 150-class dataset" }
 ]
