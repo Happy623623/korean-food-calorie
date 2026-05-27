@@ -1,0 +1,42 @@
+# ============================================================
+# 2단계 분류기 설정 — timm EfficientNet-B0 음식 15종 분류
+#
+# 하이브리드 설계: YOLO 가 잘라준 음식 크롭을 받아 15종 중 하나로 분류한다.
+# src/classifier/train.py / src/pipeline.py 가 이 파일을 읽는다.
+# ============================================================
+
+project:
+  name: korean-food-classifier
+  seed: 42
+
+# 클래스/칼로리의 단일 진실 공급원.
+# 이 JSON 의 항목 순서가 곧 클래스 인덱스(0~14)이며,
+# 학습 데이터 폴더 이름은 각 항목의 영문명(english)과 일치해야 한다.
+food_table: food_calories.json
+
+data:
+  # 폴더 기반(ImageFolder 스타일) 분류 데이터.
+  #   data/classifier/train/<english_name>/*.jpg
+  #   data/classifier/val/<english_name>/*.jpg
+  # (예: data/classifier/train/bibimbap/img001.jpg)
+  root: data/classifier
+  train: train
+  val: val
+  num_workers: 4               # Windows 에서 DataLoader 에러나면 0 으로
+
+model:
+  backbone: efficientnet_b0    # timm 모델 이름
+  pretrained: true             # ImageNet 사전학습 가중치에서 fine-tuning
+  dropout: 0.2
+  image_size: 224
+
+train:
+  epochs: 30
+  batch_size: 32
+  lr: 0.0003
+  weight_decay: 0.0001
+  label_smoothing: 0.1         # CrossEntropy label smoothing
+  amp: true                    # mixed precision (CUDA 에서만 활성)
+  checkpoint_dir: checkpoints
+  weights: checkpoints/classifier_best.pt   # 검증 정확도 최고 시점 가중치
+  log_dir: logs

@@ -1,0 +1,62 @@
+# ===== Python =====
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+build/
+dist/
+
+# ===== 가상환경 =====
+.venv/
+venv/
+env/
+ENV/
+
+# ===== 학습 산출물 =====
+checkpoints/*
+!checkpoints/.gitkeep
+logs/
+*.pth
+*.pt
+*.ckpt
+# YOLO 학습 결과 폴더
+runs/
+
+# ===== 사전학습 가중치 (weights/ 에서만 관리, 추적 제외) =====
+# yolo11n.pt 등 자동 다운로드 가중치는 weights/ 로 모으고 버전관리에서 제외한다.
+# (*.pt 규칙으로도 이미 제외되지만 폴더 단위로 명시)
+weights/
+
+# ===== 임시 / 스모크 산출물 =====
+# configs/*_smoke.yaml, data/.../dataset_smoke.yaml 등
+*_smoke.*
+# YOLO 라벨 캐시 (labels/<split>.cache)
+*.cache
+
+# ===== 데이터셋 (용량이 크므로 버전관리 제외, 폴더 구조만 유지) =====
+# 1단계 검출기 (YOLO 형식): data/detector/images|labels/{train,val,test}
+data/detector/images/*/*
+data/detector/labels/*/*
+!data/detector/images/*/.gitkeep
+!data/detector/labels/*/.gitkeep
+
+# 2단계 분류기 (폴더 기반): data/classifier/{train,val}/<english_name>/*.jpg
+data/classifier/*/*
+!data/classifier/*/.gitkeep
+
+# train_yolo.py 가 detector.yaml 로부터 자동 생성하는 ultralytics 데이터셋 명세
+data/detector/dataset.yaml
+
+# ===== 노트북 / 캐시 =====
+.ipynb_checkpoints/
+*.ipynb
+
+# ===== IDE / OS =====
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# ===== Claude Code 로컬 설정 (머신별 권한 허용 목록, 공유 안 함) =====
+.claude/settings.local.json

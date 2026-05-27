@@ -1,0 +1,17 @@
+[
+  { "korean": "김밥",     "english": "gimbap",          "kcal_per_serving": 480, "serving_size_g": 250 },
+  { "korean": "떡볶이",   "english": "tteokbokki",      "kcal_per_serving": 480, "serving_size_g": 300 },
+  { "korean": "비빔밥",   "english": "bibimbap",        "kcal_per_serving": 600, "serving_size_g": 450 },
+  { "korean": "김치찌개", "english": "kimchi-jjigae",   "kcal_per_serving": 240, "serving_size_g": 400 },
+  { "korean": "된장찌개", "english": "doenjang-jjigae", "kcal_per_serving": 180, "serving_size_g": 400 },
+  { "korean": "불고기",   "english": "bulgogi",         "kcal_per_serving": 430, "serving_size_g": 250 },
+  { "korean": "제육볶음", "english": "jeyuk-bokkeum",   "kcal_per_serving": 470, "serving_size_g": 250 },
+  { "korean": "삼겹살",   "english": "samgyeopsal",     "kcal_per_serving": 520, "serving_size_g": 200 },
+  { "korean": "냉면",     "english": "naengmyeon",      "kcal_per_serving": 550, "serving_size_g": 600 },
+  { "korean": "칼국수",   "english": "kalguksu",        "kcal_per_serving": 480, "serving_size_g": 700 },
+  { "korean": "라면",     "english": "ramyeon",         "kcal_per_serving": 500, "serving_size_g": 550 },
+  { "korean": "순두부찌개", "english": "sundubu-jjigae", "kcal_per_serving": 250, "serving_size_g": 400 },
+  { "korean": "갈비탕",   "english": "galbitang",       "kcal_per_serving": 400, "serving_size_g": 600 },
+  { "korean": "잡채",     "english": "japchae",         "kcal_per_serving": 330, "serving_size_g": 200 },
+  { "korean": "부대찌개", "english": "budae-jjigae",    "kcal_per_serving": 480, "serving_size_g": 500 }
+]
