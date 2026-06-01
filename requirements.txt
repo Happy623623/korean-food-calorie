@@ -28,6 +28,10 @@ scikit-learn>=1.3.0
 
 # 시각화
 matplotlib>=3.7.0
+seaborn>=0.13.0
+
+# 평가 결과 표/CSV (혼동행렬 등)
+pandas>=2.0.0
 
 # 수치 연산 (albumentations/torch 의존, 명시적으로 포함)
 numpy>=1.24.0
