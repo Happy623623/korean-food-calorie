@@ -35,3 +35,6 @@ pandas>=2.0.0
 
 # 수치 연산 (albumentations/torch 의존, 명시적으로 포함)
 numpy>=1.24.0
+
+# 3단계: 웹 데모 (app.py) — 이미지 업로드 → 분류 + 칼로리 표시
+gradio>=4.0.0
