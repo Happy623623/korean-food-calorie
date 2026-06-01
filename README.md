@@ -1,4 +1,7 @@
 # korean-food-calorie
+# 🍱 한식 칼로리 분석기 (Korean Food Calorie Analyzer)
+
+🔗 **라이브 데모: [Hugging Face Spaces](https://huggingface.co/spaces/Happy623623/korean-food-calorie)**
 
 한국 음식 사진에서 음식을 찾아 종류를 알아내고 칼로리를 추정하는 **하이브리드 딥러닝 파이프라인**.
 
