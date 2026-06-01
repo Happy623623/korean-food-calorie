@@ -93,6 +93,59 @@ AI Hub 한국 음식 데이터셋(150종)에서 15종을 선별하여 사용했�
 
 라벨 분포 불균형으로 인해 YOLO 모델은 라벨 풍부한 클래스(제육볶음, 떡볶이 등)에서 성능이 높고, 라벨 부족 클래스(라면, 김치찌개)에서는 성능 저하가 예상됩니다.
 
+## 학습 결과
+
+### 성능 요약
+| 지표 | 값 |
+|------|---|
+| Test Accuracy | **92.92%** |
+| Val Accuracy (best) | 93.20% |
+| 일반화 손실 (val - test) | 0.28%p |
+| Macro F1 | 0.9298 |
+
+검증/테스트 갭이 0.3%p 미만으로 **일반화가 잘 된** 모델.
+
+### 학습 곡선
+![Training Curves](evaluation_results/training_curves.png)
+
+- val accuracy가 **epoch 7~10에 거의 최종 성능에 도달**. 30 epoch는 다소 여유롭게 학습한 셈으로, 향후 15 epoch + Early Stopping으로 학습 시간을 절반으로 줄일 수 있음.
+- train_acc(0.999)와 val_acc(0.932)의 6.7%p 갭은 dropout(0.2), label smoothing(0.1), augmentation에도 불구하고 남은 과적합. 추가 정규화 또는 mixup/cutmix 도입 여지가 있음.
+
+### 혼동행렬
+![Confusion Matrix](evaluation_results/confusion_matrix.png)
+
+### 오분류 패턴 분석
+
+대부분의 오분류가 **시각적으로 합리적인 혼동**으로 모델의 학습 품질을 시사:
+
+**1. 찌개 클러스터** (kimchi/doenjang/sundubu)
+- 세 찌개 간 양방향 혼동이 가장 빈번
+- 붉은 국물 + 두부/김치/된장 등 시각적 특징이 유사
+
+**2. 양념 고기 페어** (bulgogi ↔ jeyuk-bokkeum)
+- 빨간 양념과 고기 단면 비주얼이 유사
+
+**3. 국물 + 면 클러스터** (galbitang ↔ kalguksu)
+- 흰 국물과 면이 화면에서 비슷한 영역을 차지
+
+**4. 흥미로운 발견** 
+- `samgyeopsal → kimchi-jjigae` 오분류는 한국 음식의 자주 등장 조합(삼겹살에 김치) 때문에 모델이 학습한 공기 패턴
+
+### 클래스별 성능 (F1 기준)
+| 상위 | 하위 |
+|------|------|
+| gimbap 0.99 | bulgogi 0.85 |
+| jjajangmyeon 0.97 | sundubu-jjigae 0.88 |
+| tteokbokki 0.97 | kimchi-jjigae 0.89 |
+
+시각적 특징이 독특한 음식(김밥, 짜장면, 떡볶이)은 거의 완벽 분류.  
+유사 비주얼 음식(찌개류, 양념고기)에서 성능 저하.
+
+### 개선 방향
+1. **찌개류/양념고기 fine-grained augmentation**: 색상 hue/saturation 변형 강화
+2. **학습 효율화**: Early Stopping + 15 epoch로 학습 시간 절반
+3. **추가 정규화**: dropout 0.2 → 0.3, mixup α=0.2
+
 ## 설치
 
 ```bash
