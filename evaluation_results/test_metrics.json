@@ -1,96 +1,144 @@
 {
-  "test_accuracy": 0.9291975724881996,
-  "test_samples": 1483,
+  "test_accuracy": 0.917057902973396,
+  "test_samples": 1917,
   "per_class": {
-    "gimbap": {
-      "precision": 1.0,
-      "recall": 0.9797979797979798,
-      "f1": 0.9897959183673469,
-      "support": 99
-    },
-    "tteokbokki": {
-      "precision": 0.9607843137254902,
-      "recall": 0.98,
-      "f1": 0.9702970297029703,
-      "support": 100
-    },
     "bibimbap": {
-      "precision": 0.94,
-      "recall": 0.9494949494949495,
-      "f1": 0.9447236180904522,
-      "support": 99
-    },
-    "kimchi-jjigae": {
-      "precision": 0.8811881188118812,
-      "recall": 0.89,
-      "f1": 0.8855721393034826,
-      "support": 100
-    },
-    "doenjang-jjigae": {
-      "precision": 0.8545454545454545,
-      "recall": 0.94,
-      "f1": 0.8952380952380953,
+      "precision": 0.9603960396039604,
+      "recall": 0.97,
+      "f1": 0.9651741293532339,
       "support": 100
     },
     "bulgogi": {
-      "precision": 0.8415841584158416,
+      "precision": 0.8018018018018018,
+      "recall": 0.89,
+      "f1": 0.8436018957345972,
+      "support": 100
+    },
+    "doenjang-jjigae": {
+      "precision": 0.9139784946236559,
       "recall": 0.85,
-      "f1": 0.845771144278607,
+      "f1": 0.8808290155440415,
+      "support": 100
+    },
+    "donkkaseu": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "support": 14
+    },
+    "fried-egg": {
+      "precision": 0.9514563106796117,
+      "recall": 0.9702970297029703,
+      "f1": 0.9607843137254902,
+      "support": 101
+    },
+    "galbitang": {
+      "precision": 0.979381443298969,
+      "recall": 0.95,
+      "f1": 0.9644670050761421,
+      "support": 100
+    },
+    "gimbap": {
+      "precision": 0.979381443298969,
+      "recall": 0.95,
+      "f1": 0.9644670050761421,
+      "support": 100
+    },
+    "hamburger": {
+      "precision": 1.0,
+      "recall": 0.8333333333333334,
+      "f1": 0.9090909090909091,
+      "support": 24
+    },
+    "japchae": {
+      "precision": 0.9787234042553191,
+      "recall": 0.92,
+      "f1": 0.9484536082474226,
       "support": 100
     },
     "jeyuk-bokkeum": {
-      "precision": 0.8952380952380953,
-      "recall": 0.94,
-      "f1": 0.9170731707317074,
-      "support": 100
-    },
-    "samgyeopsal": {
-      "precision": 0.9587628865979382,
-      "recall": 0.93,
-      "f1": 0.9441624365482234,
-      "support": 100
-    },
-    "mul-naengmyeon": {
-      "precision": 0.96,
-      "recall": 0.9696969696969697,
-      "f1": 0.964824120603015,
-      "support": 99
-    },
-    "kalguksu": {
-      "precision": 0.94,
-      "recall": 0.94,
-      "f1": 0.94,
-      "support": 100
-    },
-    "ramyeon": {
-      "precision": 0.9387755102040817,
-      "recall": 0.92,
-      "f1": 0.9292929292929293,
-      "support": 100
-    },
-    "sundubu-jjigae": {
-      "precision": 0.8877551020408163,
-      "recall": 0.87,
-      "f1": 0.8787878787878788,
-      "support": 100
-    },
-    "galbitang": {
-      "precision": 0.9666666666666667,
-      "recall": 0.87,
-      "f1": 0.9157894736842105,
-      "support": 100
-    },
-    "japchae": {
-      "precision": 0.9690721649484536,
-      "recall": 0.94,
-      "f1": 0.9543147208121827,
+      "precision": 0.9021739130434783,
+      "recall": 0.83,
+      "f1": 0.8645833333333334,
       "support": 100
     },
     "jjajangmyeon": {
-      "precision": 0.9655172413793104,
-      "recall": 0.9767441860465116,
-      "f1": 0.9710982658959537,
-      "support": 86
+      "precision": 0.9555555555555556,
+      "recall": 0.9885057471264368,
+      "f1": 0.9717514124293786,
+      "support": 87
+    },
+    "jjamppong": {
+      "precision": 0.8679245283018868,
+      "recall": 0.92,
+      "f1": 0.8932038834951457,
+      "support": 100
+    },
+    "kalguksu": {
+      "precision": 0.8932038834951457,
+      "recall": 0.92,
+      "f1": 0.9064039408866995,
+      "support": 100
+    },
+    "kimchi-jjigae": {
+      "precision": 0.8303571428571429,
+      "recall": 0.9207920792079208,
+      "f1": 0.8732394366197183,
+      "support": 101
+    },
+    "mul-naengmyeon": {
+      "precision": 0.979381443298969,
+      "recall": 0.95,
+      "f1": 0.9644670050761421,
+      "support": 100
+    },
+    "pizza": {
+      "precision": 0.9896907216494846,
+      "recall": 0.96,
+      "f1": 0.9746192893401016,
+      "support": 100
+    },
+    "ramyeon": {
+      "precision": 0.9042553191489362,
+      "recall": 0.85,
+      "f1": 0.8762886597938144,
+      "support": 100
+    },
+    "rice": {
+      "precision": 0.9523809523809523,
+      "recall": 0.967741935483871,
+      "f1": 0.96,
+      "support": 62
+    },
+    "samgyeopsal": {
+      "precision": 0.9393939393939394,
+      "recall": 0.93,
+      "f1": 0.9346733668341709,
+      "support": 100
+    },
+    "sausage": {
+      "precision": 0.7142857142857143,
+      "recall": 0.8333333333333334,
+      "f1": 0.7692307692307693,
+      "support": 12
+    },
+    "spaghetti": {
+      "precision": 0.7272727272727273,
+      "recall": 1.0,
+      "f1": 0.8421052631578947,
+      "support": 16
+    },
+    "sundubu-jjigae": {
+      "precision": 0.8383838383838383,
+      "recall": 0.83,
+      "f1": 0.8341708542713567,
+      "support": 100
+    },
+    "tteokbokki": {
+      "precision": 0.898989898989899,
+      "recall": 0.89,
+      "f1": 0.8944723618090452,
+      "support": 100
     }
   }
 }

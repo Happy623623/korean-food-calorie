@@ -162,8 +162,8 @@ def top_confused_pairs(cm, classes, top_k: int = 5):
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="음식 15종 분류기 test 셋 평가")
-    parser.add_argument("--checkpoint", default="checkpoints/classifier_best.pt",
+    parser = argparse.ArgumentParser(description="음식 23종 분류기 test 셋 평가")
+    parser.add_argument("--checkpoint", default="checkpoints/best_efficientnet_b0_23.pt",
                         help="평가할 체크포인트 경로")
     parser.add_argument("--data-root", default="data/classifier/test",
                         help="test 데이터 루트 (하위에 <english_name>/*.jpg)")

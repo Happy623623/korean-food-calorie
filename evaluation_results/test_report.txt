@@ -1,24 +1,32 @@
-test_accuracy: 0.9292
-test_samples : 1483
+test_accuracy: 0.9171
+test_samples : 1917
 
                  precision    recall  f1-score   support
 
-         gimbap     1.0000    0.9798    0.9898        99
-     tteokbokki     0.9608    0.9800    0.9703       100
-       bibimbap     0.9400    0.9495    0.9447        99
-  kimchi-jjigae     0.8812    0.8900    0.8856       100
-doenjang-jjigae     0.8545    0.9400    0.8952       100
-        bulgogi     0.8416    0.8500    0.8458       100
-  jeyuk-bokkeum     0.8952    0.9400    0.9171       100
-    samgyeopsal     0.9588    0.9300    0.9442       100
- mul-naengmyeon     0.9600    0.9697    0.9648        99
-       kalguksu     0.9400    0.9400    0.9400       100
-        ramyeon     0.9388    0.9200    0.9293       100
- sundubu-jjigae     0.8878    0.8700    0.8788       100
-      galbitang     0.9667    0.8700    0.9158       100
-        japchae     0.9691    0.9400    0.9543       100
-   jjajangmyeon     0.9655    0.9767    0.9711        86
+       bibimbap     0.9604    0.9700    0.9652       100
+        bulgogi     0.8018    0.8900    0.8436       100
+doenjang-jjigae     0.9140    0.8500    0.8808       100
+      donkkaseu     1.0000    1.0000    1.0000        14
+      fried-egg     0.9515    0.9703    0.9608       101
+      galbitang     0.9794    0.9500    0.9645       100
+         gimbap     0.9794    0.9500    0.9645       100
+      hamburger     1.0000    0.8333    0.9091        24
+        japchae     0.9787    0.9200    0.9485       100
+  jeyuk-bokkeum     0.9022    0.8300    0.8646       100
+   jjajangmyeon     0.9556    0.9885    0.9718        87
+      jjamppong     0.8679    0.9200    0.8932       100
+       kalguksu     0.8932    0.9200    0.9064       100
+  kimchi-jjigae     0.8304    0.9208    0.8732       101
+ mul-naengmyeon     0.9794    0.9500    0.9645       100
+          pizza     0.9897    0.9600    0.9746       100
+        ramyeon     0.9043    0.8500    0.8763       100
+           rice     0.9524    0.9677    0.9600        62
+    samgyeopsal     0.9394    0.9300    0.9347       100
+        sausage     0.7143    0.8333    0.7692        12
+      spaghetti     0.7273    1.0000    0.8421        16
+ sundubu-jjigae     0.8384    0.8300    0.8342       100
+     tteokbokki     0.8990    0.8900    0.8945       100
 
-       accuracy                         0.9292      1483
-      macro avg     0.9307    0.9297    0.9298      1483
-   weighted avg     0.9303    0.9292    0.9293      1483
+       accuracy                         0.9171      1917
+      macro avg     0.9112    0.9184    0.9129      1917
+   weighted avg     0.9197    0.9171    0.9175      1917
