@@ -41,9 +41,13 @@ data/detector/labels/*/*
 !data/detector/images/*/.gitkeep
 !data/detector/labels/*/.gitkeep
 
-# 2단계 분류기 (폴더 기반): data/classifier/{train,val}/<english_name>/*.jpg
+# 2단계 분류기 (폴더 기반): data/classifier/{train,val,test}/<english_name>/*.jpg
 data/classifier/*/*
 !data/classifier/*/.gitkeep
+
+# 분류기 데이터 zip / 식약처 조회 스크래치 (용량 크거나 임시 산출물 — 추적 제외)
+classifier_data.zip
+_mfds_lookup.json
 
 # train_yolo.py 가 detector.yaml 로부터 자동 생성하는 ultralytics 데이터셋 명세
 data/detector/dataset.yaml
