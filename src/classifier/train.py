@@ -1,4 +1,4 @@
-"""classifier 학습: 음식 크롭 -> 15종 분류 (EfficientNet-B0).
+"""classifier 학습: 음식 크롭 -> 23종 분류 (torchvision EfficientNet-B0).
 
 사용법 (프로젝트 루트에서):
     python -m src.classifier.train --config configs/classifier.yaml
@@ -6,6 +6,7 @@
 동작:
     - food_calories.json 순서로 클래스(영문명)를 정해 인덱스 정렬을 보장
     - data_root/<split>/<english_name>/*.jpg 폴더 구조에서 학습/검증 데이터를 읽음
+    - clamp(max=3) 한 balanced 클래스 가중치 + label smoothing 으로 클래스 불균형 보정
     - AdamW + CosineAnnealingLR + AMP(mixed precision) 로 학습
     - 검증 top-1 정확도가 가장 높은 시점의 가중치를 best.pt 로 저장
       (체크포인트에 classes / backbone / image_size 메타데이터를 함께 기록해
@@ -15,6 +16,7 @@
 """
 
 import argparse
+import json
 import os
 
 import torch
@@ -67,8 +69,26 @@ def _run_epoch(model, loader, criterion, device, optimizer=None, scaler=None):
     return loss_meter.avg, acc_meter.avg
 
 
+def _build_class_weights(path, classes, clamp_max, device, logger):
+    """클래스 가중치 텐서를 만든다.
+
+    configs/class_weights.json 은 train split 역빈도(balanced) **원시값**을 담는다.
+    여기서 classes(=food_calories.json 순서)대로 정렬하고 clamp_max 로 상한을 걸어
+    소수 클래스 과대 가중을 막는다(Colab 학습 레시피와 동일: max=3.0).
+    파일이 없으면 None 을 반환해 클래스 가중치 없이(균등) 학습한다.
+    """
+    if not path or not os.path.isfile(path):
+        logger.warning("class_weights 파일 없음(%s) -> 클래스 가중치 없이 학습", path)
+        return None
+    with open(path, encoding="utf-8") as f:
+        raw = json.load(f)
+    weights = [min(float(raw.get(name, 1.0)), clamp_max) for name in classes]
+    logger.info("클래스 가중치 적용: clamp(max=%.1f) · %d개 클래스", clamp_max, len(weights))
+    return torch.tensor(weights, dtype=torch.float32, device=device)
+
+
 def main() -> None:
-    parser = argparse.ArgumentParser(description="음식 15종 분류기 학습 (EfficientNet-B0)")
+    parser = argparse.ArgumentParser(description="음식 23종 분류기 학습 (EfficientNet-B0)")
     parser.add_argument("--config", default="configs/classifier.yaml", help="설정 파일 경로")
     parser.add_argument("--epochs", type=int, default=None, help="config 값 덮어쓰기")
     parser.add_argument("--batch", type=int, default=None, help="config 값 덮어쓰기")
@@ -122,7 +142,13 @@ def main() -> None:
         dropout=model_cfg.get("dropout", 0.2),
     ).to(device)
 
-    criterion = nn.CrossEntropyLoss(label_smoothing=float(tr.get("label_smoothing", 0.0)))
+    class_weights = _build_class_weights(
+        tr.get("class_weights", os.path.join("configs", "class_weights.json")),
+        classes, float(tr.get("class_weight_clamp", 3.0)), device, logger,
+    )
+    criterion = nn.CrossEntropyLoss(
+        weight=class_weights, label_smoothing=float(tr.get("label_smoothing", 0.0)),
+    )
     optimizer = torch.optim.AdamW(
         model.parameters(), lr=float(tr["lr"]), weight_decay=float(tr["weight_decay"]),
     )

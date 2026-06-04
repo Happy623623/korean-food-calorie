@@ -1,4 +1,4 @@
-"""classifier(EfficientNet 15-class) 학습용 폴더 기반 Dataset + albumentations 변환.
+"""classifier(EfficientNet 23-class) 학습용 폴더 기반 Dataset + albumentations 변환.
 
 데이터 레이아웃 (ImageFolder 스타일):
 
@@ -38,20 +38,25 @@ def build_transforms(image_size: int, train: bool) -> A.Compose:
         train: True면 증강 포함, False면 리사이즈 + 정규화만 적용
     """
     if train:
-        resize = int(round(image_size * 1.14))
+        # Colab 학습 레시피와 동일(torchvision 등가):
+        #   RandomResizedCrop(224, scale 0.7~1.0) + HorizontalFlip
+        #   + Rotation(±15) + ColorJitter(0.2, 0.2, 0.2, 0.05)
+        # Rotate/ColorJitter 는 torchvision 처럼 매 호출 적용(p=1.0), Flip 만 p=0.5.
         return A.Compose([
-            A.Resize(resize, resize),
-            A.RandomCrop(image_size, image_size),
+            A.RandomResizedCrop(image_size, image_size, scale=(0.7, 1.0)),
             A.HorizontalFlip(p=0.5),
-            A.RandomBrightnessContrast(p=0.3),
-            A.ShiftScaleRotate(shift_limit=0.05, scale_limit=0.1,
-                               rotate_limit=15, border_mode=0, p=0.3),
+            A.Rotate(limit=15, border_mode=0, p=1.0),
+            A.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.05, p=1.0),
             A.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD),
             ToTensorV2(),
         ])
 
+    # 평가/추론: 학습과 동일하게 짧은 변 256 으로 리사이즈(비율 유지) 후 224 중앙 크롭.
+    # torchvision 의 Resize(256)→CenterCrop(224) 와 동치.
+    resize = int(round(image_size / 0.875))  # 224 → 256
     return A.Compose([
-        A.Resize(image_size, image_size),
+        A.SmallestMaxSize(max_size=resize),
+        A.CenterCrop(image_size, image_size),
         A.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD),
         ToTensorV2(),
     ])
