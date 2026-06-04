@@ -14,7 +14,7 @@
   { "korean": "갈비탕",     "english": "galbitang",       "kcal_per_serving": 400, "serving_size_g": 600, "kcal_per_100g": 67,  "source": "estimate", "note": "MFDS 33 kcal/100g (broth-heavy measurement) yields 198 kcal; actual serving with beef and noodles is closer to 400 kcal" },
   { "korean": "잡채",       "english": "japchae",         "kcal_per_serving": 258, "serving_size_g": 200, "kcal_per_100g": 129, "source": "MFDS" },
   { "korean": "짜장면",     "english": "jjajangmyeon",    "kcal_per_serving": 765, "serving_size_g": 500, "kcal_per_100g": 153, "source": "MFDS", "note": "Replaced 부대찌개 due to unavailability in AI Hub 150-class dataset" },
-  { "korean": "짬뽕",       "english": "jjamppong",  "kcal_per_serving": 406, "serving_size_g": 700, "kcal_per_100g": 58,  "source": "MFDS", "note": "식약처 '짬뽕' 58 kcal/100g 기준 (국물 위주 측정값)" },
+  { "korean": "짬뽕",       "english": "jjamppong",  "kcal_per_serving": 540, "serving_size_g": 700, "kcal_per_100g": 77,  "source": "estimate", "note": "MFDS 58kcal/100g은 국물 위주 측정으로 1그릇 체감 대비 낮아 보정" },
   { "korean": "달걀프라이", "english": "fried-egg",  "kcal_per_serving": 104, "serving_size_g": 50,  "kcal_per_100g": 208, "source": "MFDS", "note": "식약처 '달걀부침(달걀후라이)' 208 kcal/100g 기준, 1개(50g)·기름 포함" },
   { "korean": "피자",       "english": "pizza",      "kcal_per_serving": 265, "serving_size_g": 100, "kcal_per_100g": 265, "source": "estimate", "note": "양식 / 1조각 기준" },
   { "korean": "소세지",     "english": "sausage",    "kcal_per_serving": 258, "serving_size_g": 100, "kcal_per_100g": 258, "source": "MFDS", "note": "식약처 '소시지볶음' 기준 (280·236 kcal/100g 중앙값 258)" },
