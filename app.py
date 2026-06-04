@@ -24,7 +24,7 @@ logging.basicConfig(level=logging.INFO)
 # ----------------------------------------------------------------------
 # 설정
 # ----------------------------------------------------------------------
-CHECKPOINT_PATH = "checkpoints/classifier_best.pt"
+CHECKPOINT_PATH = "checkpoints/best_efficientnet_b0_23.pt"
 FOOD_TABLE_PATH = "food_calories.json"
 TEST_ROOT = "data/classifier/test"          # gr.Examples 자동 수집 대상
 LOW_CONFIDENCE_THRESHOLD = 0.50             # 이 미만이면 경고 표시
@@ -43,6 +43,7 @@ try:
     CLASSIFIER: Optional[FoodClassifier] = FoodClassifier(
         checkpoint_path=CHECKPOINT_PATH,
         food_table_path=FOOD_TABLE_PATH,
+        device="cpu",                       # CPU 추론 기준
     )
     SUPPORTED_KOREAN: List[str] = [
         CLASSIFIER.food_table.get(c, {}).get("korean") or c
@@ -121,7 +122,7 @@ def predict_food(image) -> Tuple[str, Dict[str, float], str, str]:
     if confidence < LOW_CONFIDENCE_THRESHOLD:
         lines.append("")
         lines.append(
-            "> ⚠️ 모델 신뢰도가 낮습니다. 학습된 15종 한식이 아닐 수 있습니다."
+            "> ⚠️ 모델 신뢰도가 낮습니다. 학습된 23종 한식이 아닐 수 있습니다."
         )
 
     main_md = "\n".join(lines)
@@ -184,8 +185,8 @@ def build_demo() -> gr.Blocks:
         gr.Markdown(
             "# 🍚 한식 칼로리 분석기 (Korean Food Calorie Analyzer)\n"
             "한식 사진을 업로드하면 **음식 종류와 1인분 칼로리**를 알려드립니다.\n\n"
-            "- **모델:** EfficientNet-B0 분류기 (timm) · 15종 한식\n"
-            f"- **지원 음식(15종):** {supported_str}"
+            "- **모델:** EfficientNet-B0 분류기 (torchvision) · 23종 한식\n"
+            f"- **지원 음식(23종):** {supported_str}"
         )
 
         with gr.Row():

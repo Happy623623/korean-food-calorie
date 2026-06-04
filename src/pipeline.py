@@ -3,7 +3,7 @@
     이미지 ──▶ [1단계: YOLO11 검출] ──▶ 음식 영역 bbox
                                         │
                                         ▼  각 bbox 크롭
-            [2단계: EfficientNet 분류] ──▶ 음식 종류(15종) + 확신도
+            [2단계: EfficientNet 분류] ──▶ 음식 종류(23종) + 확신도
                                         │
                                         ▼  검출 박스 1개 = 1인분
                        kcal = food_calories.json 의 kcal_per_serving 합산
@@ -52,26 +52,37 @@ class FoodCaloriePipeline:
                 f"먼저 `python -m src.classifier.train` 로 학습하세요."
             )
 
-        checkpoint = torch.load(weights, map_location=self.device)
-        # 체크포인트에 저장된 메타데이터로 클래스 정렬/입력 크기를 복원
+        checkpoint = torch.load(weights, map_location=self.device, weights_only=False)
+        # 체크포인트에 저장된 메타데이터로 클래스 정렬/입력 크기를 복원.
+        # classes 는 학습 시 ImageFolder 알파벳 순일 수 있으므로 JSON 순서에 의존하지 않고
+        # 반드시 이 리스트(인덱스→영문명)를 사용한다.
         self.classes: List[str] = checkpoint.get("classes", self.table.english_names)
         backbone = checkpoint.get("backbone", cm.get("backbone", "efficientnet_b0"))
         self.image_size = int(checkpoint.get("image_size", cm.get("image_size", 224)))
         num_classes = int(checkpoint.get("num_classes", len(self.classes)))
 
-        # 정합성 검증: 분류기 클래스 순서가 칼로리 테이블과 어긋나면 즉시 에러
-        if self.classes != self.table.english_names:
+        # 영문명 → FoodInfo 조회 테이블(칼로리 매핑은 인덱스가 아닌 영문 키로 한다).
+        self.eng_to_info = {info.english: info for info in self.table.infos}
+
+        # 정합성 검증: 모델 클래스가 칼로리 테이블에 모두 존재하는지(순서는 무관).
+        missing = [c for c in self.classes if c not in self.eng_to_info]
+        if missing:
             raise ValueError(
-                "분류기 체크포인트의 클래스 순서가 food_calories.json 과 일치하지 않습니다.\n"
-                f"  checkpoint: {self.classes}\n"
-                f"  food_table: {self.table.english_names}\n"
-                "동일한 food_calories.json 으로 분류기를 다시 학습하세요."
+                "분류기 체크포인트의 클래스가 food_calories.json 에 없습니다: "
+                f"{missing}\n동일한 food_calories.json 으로 분류기를 학습/저장하세요."
             )
 
         self.model = build_classifier(
             backbone=backbone, num_classes=num_classes, pretrained=False, dropout=0.0,
         )
-        state_dict = checkpoint.get("model", checkpoint)
+        # 체크포인트마다 가중치 키가 다를 수 있어 우선순위대로 탐색(state_dict/model/...).
+        state_dict = None
+        for key in ("model", "model_state_dict", "state_dict"):
+            if isinstance(checkpoint, dict) and key in checkpoint:
+                state_dict = checkpoint[key]
+                break
+        if state_dict is None:
+            state_dict = checkpoint  # 순수 state_dict 로 저장된 경우
         self.model.load_state_dict(state_dict)
         self.model.to(self.device).eval()
 
@@ -115,7 +126,9 @@ class FoodCaloriePipeline:
 
             cls = self._classify(crop)
             class_id = cls["class_id"]
-            info = self.table[class_id]
+            # 인덱스 → 체크포인트 classes 의 영문명 → 칼로리 테이블(영문 키) 조회.
+            english = self.classes[class_id]
+            info = self.eng_to_info[english]
 
             # 검출 박스 1개 = 표준 1인분
             kcal = info.kcal_per_serving

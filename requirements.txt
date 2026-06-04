@@ -5,7 +5,8 @@ torchvision>=0.16.0
 # 1단계: 음식 영역 검출 (YOLO11). opencv/numpy/pyyaml 등 대부분의 의존성을 함께 끌어온다.
 ultralytics>=8.3.0
 
-# 2단계: 음식 15종 분류 백본 (EfficientNet-B0 등).
+# 2단계: 음식 23종 분류 백본은 torchvision EfficientNet-B0 (src/classifier/model.py).
+# (timm 은 초기 프로토타입에서만 사용했고 현재 학습/추론 경로에서는 import 하지 않는다.)
 timm>=0.9.0
 
 # 데이터 증강

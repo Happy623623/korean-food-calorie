@@ -9,7 +9,7 @@
 이미지 ─▶ [1단계] YOLO11 검출 ─▶ 음식 영역 bbox
                                   │ 각 bbox 크롭
                                   ▼
-            [2단계] EfficientNet-B0 분류 ─▶ 음식 종류(15종) + 확신도
+            [2단계] EfficientNet-B0 분류 ─▶ 음식 종류(23종) + 확신도
                                   │ 검출 박스 1개 = 1인분
                                   ▼
                   kcal_per_serving 합산 ─▶ 음식별 kcal + 총 칼로리
@@ -21,29 +21,34 @@
 
 - **YOLO11 (검출)** — 한 접시 위 여러 음식의 *위치*를 잡는 데 집중한다. 단일 클래스(`food`)만
   검출하므로 라벨링이 단순하고("음식이면 박스"), 종류 라벨 없이도 검출기를 학습할 수 있다.
-- **EfficientNet-B0 (분류)** — 잘라낸 크롭 한 장을 15종 중 하나로 분류한다. 미세한 종류 구분이라는
+- **EfficientNet-B0 (분류)** — 잘라낸 크롭 한 장을 23종 중 하나로 분류한다. 미세한 종류 구분이라는
   더 어려운 일에만 집중하므로, 폴더 기반 분류 데이터(`<class>/*.jpg`)로 쉽게 학습/교체할 수 있다.
 
 각 단계를 독립적으로 학습·교체·평가할 수 있어 유지보수와 디버깅이 쉽다.
 칼로리는 **검출된 박스 1개를 표준 1인분으로 보고** `kcal_per_serving` 을 합산한다(별도 양 회귀 없음).
 
-> **단일 진실 공급원:** 클래스 인덱스(0~14)·이름·칼로리는 모두 `food_calories.json` 이 정한다.
+> **단일 진실 공급원:** 클래스 인덱스(0~22)·이름·칼로리는 모두 `food_calories.json` 이 정한다.
 > JSON 의 항목 순서 = 클래스 인덱스이고, 분류 데이터 폴더 이름은 각 항목의 영문명(`english`)을 쓴다.
 > 분류기 체크포인트에 클래스 순서를 함께 저장해, 추론 시 정렬 불일치를 자동 검증한다.
 
-## 음식 15종
+## 음식 23종
 
+**기존 한식 15종**
 김밥 · 떡볶이 · 비빔밥 · 김치찌개 · 된장찌개 · 불고기 · 제육볶음 · 삼겹살 · 물냉면 · 칼국수 · 라면 · 순두부찌개 · 갈비탕 · 잡채 · 짜장면
+
+**신규 확장 8종**
+짬뽕 · 달걀프라이 · 피자 · 소세지 · 햄버거 · 스파게티 · 돈까스 · 밥
 
 ## 칼로리 매핑 데이터
 
-본 프로젝트는 15종 한식의 1인분 평균 칼로리를 다음과 같이 매핑합니다.
+본 프로젝트는 23종 음식의 1인분 평균 칼로리를 다음과 같이 매핑합니다.
 
 ### 데이터 출처
 
 - **식품의약품안전처 식품영양성분 통합 DB** (https://various.foodsafetykorea.go.kr/nutrient/)
-- 9개 항목은 식약처 공식 100g당 kcal × 1인분 무게로 계산 (`source: "MFDS"`)
-- 6개 항목은 식약처 값에 다음 조정 사유가 있어 보정 (`source: "estimate"`)
+- 14개 항목은 식약처 공식 100g당 kcal × 1인분 무게로 계산 (`source: "MFDS"`)
+- 9개 항목은 식약처 값에 조정 사유가 있거나 한식 DB에 없어 보정 (`source: "estimate"`)
+- 신규 8종 중 식약처 DB에서 조회된 5종(짬뽕·달걀프라이·소세지·돈까스·밥)은 공식값으로 검증/갱신했고, 한식 DB에 없는 양식 3종(피자·햄버거·스파게티)만 추정값을 유지했습니다.
 
 ### 보정 사유 (투명성)
 
@@ -55,6 +60,9 @@
 | 순두부찌개 | 100 kcal (25/100g × 400g) | 250 kcal | 식약처 값이 일반 식당 1인분 대비 낮음 |
 | 칼국수 | 679 kcal (97/100g × 700g) | 480 kcal | 일반 참고값 대비 보수적 조정 |
 | 불고기 | - | 430 kcal | 식약처에 "돼지불고기"만 등록, 일반적 의미의 소불고기 추정값 사용 |
+| 피자 | - | 265 kcal | 양식 — 식약처 한식 DB 미수록, 1조각 기준 일반 참고값 |
+| 햄버거 | - | 500 kcal | 양식 — 식약처 한식 DB 미수록, 종류별 편차 큼 |
+| 스파게티 | - | 560 kcal | 양식 — 식약처 한식 DB 미수록, 토마토·크림 따라 차이 |
 
 각 항목은 `food_calories.json`의 `source`, `note` 필드에서 확인 가능합니다.
 
@@ -65,10 +73,16 @@
 
 ## 데이터셋 분석
 
-AI Hub 한국 음식 데이터셋(150종)에서 15종을 선별하여 사용했습니다.
-분류기와 객체 탐지 모델의 데이터 가용성이 달라 단계적으로 구축했습니다.
+분류기(2단계)는 두 소스를 합쳐 **23종 · 총 19,096장**으로 구성했고, train:val:test = **8:1:1** 로 분할했습니다(test ≈ 1,917장).
 
-### 클래스별 데이터 분포
+- **AI Hub 한국 음식 데이터셋 18종** — 기존 한식 15종 + 신규 3종(짬뽕·달걀프라이·밥)
+- **UEC FOOD-256 5종** — 한식 DB에 없는 양식/혼합 음식(피자·소세지·햄버거·스파게티·돈까스). 데이터셋의 bbox 라벨로 음식 영역만 크롭하여 사용
+
+클래스별 이미지 수 편차가 커서(최다:최소 ≈ **8:1**) 학습 단계에서 clamp(max=3) 역빈도 클래스 가중치로 보정합니다(아래 [학습 결과](#학습-결과) 참고).
+
+### 1단계 검출기 데이터 (AI Hub 한식 15종)
+
+객체 탐지(YOLO11n)는 AI Hub 한식 15종 중 bbox 라벨이 있는 이미지로 별도 학습합니다. 라벨 가용성이 클래스마다 달라 분포가 불균형합니다.
 
 | 음식 | 이미지 수 | YOLO 라벨 수 | 라벨 비율 |
 |------|---------|------------|---------|
@@ -91,8 +105,8 @@ AI Hub 한국 음식 데이터셋(150종)에서 15종을 선별하여 사용했�
 
 ### 데이터 활용 전략
 
-- **분류기 (EfficientNet-B0)**: 전체 14,790장 사용 (이미지-라벨 분류용)
-- **객체 탐지 (YOLO11n)**: 라벨이 있는 5,922장만 사용
+- **분류기 (EfficientNet-B0)**: AI Hub 18종 + UEC 5종 = **19,096장** (8:1:1 분할)
+- **객체 탐지 (YOLO11n)**: AI Hub 한식 15종 중 라벨이 있는 **5,922장**만 사용
 
 라벨 분포 불균형으로 인해 YOLO 모델은 라벨 풍부한 클래스(제육볶음, 떡볶이 등)에서 성능이 높고, 라벨 부족 클래스(라면, 김치찌개)에서는 성능 저하가 예상됩니다.
 
@@ -106,7 +120,7 @@ AI Hub 한국 음식 데이터셋(150종)에서 15종을 선별하여 사용했�
 # 1. 의존성 설치
 pip install -r requirements.txt
 
-# 2. 학습된 체크포인트를 checkpoints/classifier_best.pt 에 배치
+# 2. 학습된 체크포인트를 checkpoints/best_efficientnet_b0_23.pt 에 배치
 
 # 3. 데모 실행
 python app.py
@@ -116,7 +130,7 @@ python app.py
 
 ### 1. 학습된 한식 분류 — 정상 동작
 
-학습된 15종 한식은 높은 신뢰도로 분류됩니다. 시각적으로 유사한 음식 간 혼동은 Top-3 예측으로 함께 표시합니다.
+학습된 23종 음식은 높은 신뢰도로 분류됩니다. 시각적으로 유사한 음식 간 혼동은 Top-3 예측으로 함께 표시합니다.
 
 ![김치찌개 분류 결과](screenshots/demo_01_kimchi_jjigae.png)
 
@@ -126,7 +140,7 @@ python app.py
 
 ### 2. 학습되지 않은 음식 — 모델의 한계 가시화
 
-분류기는 학습된 15개 클래스 중에서만 답을 고르도록 설계된 closed-set 모델입니다. 학습 데이터에 없는 음식이 입력되면 가장 비주얼이 유사한 학습 클래스로 분류되는데, 신뢰도 표시를 통해 사용자가 결과를 검증할 수 있도록 했습니다.
+분류기는 학습된 23개 클래스 중에서만 답을 고르도록 설계된 closed-set 모델입니다. 학습 데이터에 없는 음식이 입력되면 가장 비주얼이 유사한 학습 클래스로 분류되는데, 신뢰도 표시를 통해 사용자가 결과를 검증할 수 있도록 했습니다.
 
 **케이스 A: 확신 있는 오답 (신뢰도가 높지만 학습되지 않은 음식)**
 
@@ -163,21 +177,45 @@ python app.py
 
 ## 학습 결과
 
+> 학습은 **Google Colab(T4 GPU)** 에서 수행했으며, 저장소의 `src/classifier/train.py` 는 동일한 학습 레시피(클래스 가중치·증강·옵티마이저)를 그대로 구현합니다.
+
 ### 성능 요약
 | 지표 | 값 |
 |------|---|
-| Test Accuracy | **92.92%** |
-| Val Accuracy (best) | 93.20% |
-| 일반화 손실 (val - test) | 0.28%p |
-| Macro F1 | 0.9298 |
+| Test Accuracy | **91.71%** |
+| Test 샘플 수 | 1,917장 |
+| Macro F1 | 0.913 |
 
-검증/테스트 갭이 0.3%p 미만으로 **일반화가 잘 된** 모델.
+23종 확장 모델의 test 정확도는 **91.7%** (macro F1 0.913). 기존 15종 모델(**92.9%**) 대비 약 1.2%p 하락했는데, 표본이 작고 촬영 도메인이 다른 양식 클래스(UEC FOOD-256)를 추가한 점을 고려하면 합리적인 수준입니다.
 
-### 학습 곡선
-![Training Curves](evaluation_results/training_curves.png)
+### 클래스 불균형 처리
 
-- val accuracy가 **epoch 7~10에 거의 최종 성능에 도달**. 30 epoch는 다소 여유롭게 학습한 셈으로, 향후 15 epoch + Early Stopping으로 학습 시간을 절반으로 줄일 수 있음.
-- train_acc(0.999)와 val_acc(0.932)의 6.7%p 갭은 dropout(0.2), label smoothing(0.1), augmentation에도 불구하고 남은 과적합. 추가 정규화 또는 mixup/cutmix 도입 여지가 있음.
+클래스별 이미지 수가 최대 **8배** 차이 나, 다음 세 가지로 보정했습니다.
+
+- **clamp(max=3) balanced 클래스 가중치** — train split 역빈도 가중치를 3.0 으로 상한 (소수 클래스 과대 가중 방지)
+- **데이터 증강** — RandomResizedCrop(scale 0.7~1.0) · HorizontalFlip · Rotation(±15) · ColorJitter(0.2/0.2/0.2/0.05)
+- **label smoothing 0.1**
+
+### 신규 클래스 성능 (F1)
+
+| 클래스 | F1 | test 표본 |
+|--------|----|----------|
+| donkkaseu(돈까스) | **1.000** | 14 |
+| pizza(피자) | 0.975 | 100 |
+| fried-egg(달걀프라이) | 0.961 | 101 |
+| rice(밥) | 0.960 | 62 |
+| hamburger(햄버거) | 0.909 | 24 |
+| jjamppong(짬뽕) | 0.893 | 100 |
+| spaghetti(스파게티) | 0.842 | 16 |
+| sausage(소세지) | **0.769** | 12 |
+
+신규 8종 F1 은 donkkaseu **1.000** 부터 sausage **0.769** 까지 분포합니다.
+
+### 한계 (정직한 기술)
+
+- **소표본 클래스의 지표 분산**: sausage(test 12장)·spaghetti(16장)·hamburger(24장)는 표본이 작아 F1 이 정·오답 몇 장에 크게 흔들립니다. 절대 수치보다 경향으로 해석해야 합니다.
+- **소수 클래스 과대예측 경향**: 클래스 가중치로 소수 클래스 recall 은 끌어올렸지만, 그만큼 해당 클래스로 과대예측(false positive)하는 경향이 남아 있습니다.
+- **도메인 혼합**: UEC FOOD-256 출처 양식 클래스는 AI Hub 한식과 촬영·구도 도메인이 달라, 실제 한식 사진 입력 시 분포 차이가 성능에 영향을 줄 수 있습니다.
 
 ### 혼동행렬
 ![Confusion Matrix](evaluation_results/confusion_matrix.png)
@@ -199,19 +237,19 @@ python app.py
 **4. 흥미로운 발견** 
 - `samgyeopsal → kimchi-jjigae` 오분류는 한국 음식의 자주 등장 조합(삼겹살에 김치) 때문에 모델이 학습한 공기 패턴
 
-### 클래스별 성능 (F1 기준)
+### 클래스별 성능 (F1 기준, 전체 23종)
 | 상위 | 하위 |
 |------|------|
-| gimbap 0.99 | bulgogi 0.85 |
-| jjajangmyeon 0.97 | sundubu-jjigae 0.88 |
-| tteokbokki 0.97 | kimchi-jjigae 0.89 |
+| donkkaseu 1.000 | sausage 0.769 |
+| pizza 0.975 | sundubu-jjigae 0.834 |
+| jjajangmyeon 0.972 | spaghetti 0.842 |
 
-시각적 특징이 독특한 음식(김밥, 짜장면, 떡볶이)은 거의 완벽 분류.  
-유사 비주얼 음식(찌개류, 양념고기)에서 성능 저하.
+시각적 특징이 독특한 음식(돈까스, 피자, 짜장면)은 거의 완벽 분류.  
+유사 비주얼 음식(찌개류, 양념고기)과 소표본 양식 클래스에서 성능 저하.
 
 ### 개선 방향
 1. **찌개류/양념고기 fine-grained augmentation**: 색상 hue/saturation 변형 강화
-2. **학습 효율화**: Early Stopping + 15 epoch로 학습 시간 절반
+2. **소표본 양식 클래스 데이터 보강**: sausage·spaghetti·hamburger 의 test 표본 확대로 지표 안정화
 3. **추가 정규화**: dropout 0.2 → 0.3, mixup α=0.2
 
 ## 설치
@@ -225,7 +263,7 @@ pip install -r requirements.txt
 ```
 korean-food-calorie/
 ├── infer.py                     # 추론 CLI 진입점
-├── food_calories.json           # 클래스/칼로리 단일 진실 공급원 (15종)
+├── food_calories.json           # 클래스/칼로리 단일 진실 공급원 (23종)
 ├── configs/
 │   ├── detector.yaml            # 1단계 YOLO 검출기 설정
 │   └── classifier.yaml          # 2단계 분류기 설정
@@ -233,9 +271,9 @@ korean-food-calorie/
 │   ├── detector/                # 1단계: 음식 영역 검출 (YOLO11)
 │   │   ├── train_yolo.py        #   학습 + dataset.yaml 자동 생성
 │   │   └── inference_yolo.py    #   박스 추론 (FoodDetector)
-│   ├── classifier/              # 2단계: 음식 15종 분류 (EfficientNet-B0)
+│   ├── classifier/              # 2단계: 음식 23종 분류 (EfficientNet-B0)
 │   │   ├── dataset.py           #   폴더 기반 Dataset + albumentations
-│   │   ├── model.py             #   timm EfficientNet-B0 분류기
+│   │   ├── model.py             #   torchvision EfficientNet-B0 분류기
 │   │   └── train.py             #   AdamW · CosineAnnealing · AMP · best.pt
 │   ├── pipeline.py              # 검출→crop→분류→kcal 합산 (FoodCaloriePipeline)
 │   └── utils.py                 # 시드/설정/로깅/체크포인트 + FoodTable
@@ -291,7 +329,7 @@ data/classifier/
 # 1단계: 음식 영역 검출기 (configs/classes 로부터 dataset.yaml 자동 생성)
 python -m src.detector.train_yolo --config configs/detector.yaml
 
-# 2단계: 음식 15종 분류기 (AdamW + CosineAnnealing + AMP, best.pt 저장)
+# 2단계: 음식 23종 분류기 (AdamW + CosineAnnealing + AMP, best.pt 저장)
 python -m src.classifier.train --config configs/classifier.yaml
 ```
 
@@ -341,4 +379,4 @@ python infer.py --source path/to/folder/
 
 ## 기술 스택
 
-PyTorch · Ultralytics YOLO11 · timm (EfficientNet-B0) · albumentations · OpenCV
+PyTorch · Ultralytics YOLO11 · torchvision (EfficientNet-B0) · albumentations · OpenCV
