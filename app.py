@@ -26,9 +26,10 @@ logging.basicConfig(level=logging.INFO)
 # ----------------------------------------------------------------------
 CHECKPOINT_PATH = "checkpoints/best_efficientnet_b0_23.pt"
 FOOD_TABLE_PATH = "food_calories.json"
-TEST_ROOT = "data/classifier/test"          # gr.Examples 자동 수집 대상
+EXAMPLES_ROOT = "examples"                  # 배포용 예제(저작권 안전 이미지) 우선
+TEST_ROOT = "data/classifier/test"          # 폴백: 로컬 데이터셋
 LOW_CONFIDENCE_THRESHOLD = 0.50             # 이 미만이면 경고 표시
-GITHUB_URL = "https://github.com/your-username/korean-food-calorie"  # TODO: 실제 저장소로 교체
+GITHUB_URL = "https://github.com/Happy623623/korean-food-calorie"
 
 # 칼로리 출처 코드 → 사람이 읽기 좋은 한글 라벨
 SOURCE_LABELS = {
@@ -150,19 +151,22 @@ def predict_food(image) -> Tuple[str, Dict[str, float], str, str]:
 
 
 # ----------------------------------------------------------------------
-# Examples 자동 수집: data/classifier/test/{english}/ 첫 파일 1장씩
+# Examples 자동 수집: examples/{english}/ (배포용) → 없으면 data/classifier/test/{english}/
 # ----------------------------------------------------------------------
 def _gather_examples(limit: int = 6) -> List[List[str]]:
-    """각 클래스 test 폴더에서 첫 이미지 1장씩 모아 gr.Examples 형식으로 반환한다.
+    """각 클래스 폴더에서 첫 이미지 1장씩 모아 gr.Examples 형식으로 반환한다.
 
+    우선순위: 배포용 examples/<class>/ (저작권 안전한 직접 준비 이미지) →
+    없으면 data/classifier/test/<class>/ (로컬 데이터셋) 로 폴백.
     Gradio Examples 는 [[입력1], [입력2], ...] 형태(입력 컴포넌트 1개 → 1-원소 리스트).
     클래스 폴더가 없거나 비어 있으면 조용히 건너뛴다.
     """
     exts = (".jpg", ".jpeg", ".png", ".bmp", ".webp")
+    root = EXAMPLES_ROOT if os.path.isdir(EXAMPLES_ROOT) else TEST_ROOT
     examples: List[List[str]] = []
     classes = CLASSIFIER.classes if CLASSIFIER is not None else []
     for english in classes:
-        cls_dir = os.path.join(TEST_ROOT, english)
+        cls_dir = os.path.join(root, english)
         if not os.path.isdir(cls_dir):
             continue
         for fname in sorted(os.listdir(cls_dir)):
