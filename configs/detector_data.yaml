@@ -1,0 +1,34 @@
+# ============================================================
+# 1단계 검출기(YOLO) — 23종 다중 클래스 객체탐지 데이터셋 명세
+# scripts/build_detector_data.py 가 생성. 클래스 인덱스는
+# 영문 알파벳순(bibimbap=0 … tteokbokki=22), 분류기 23종 체크포인트와 동일.
+# ============================================================
+path: data/detector
+train: images/train
+val: images/val
+test: images/test
+nc: 23
+names:
+  0: bibimbap
+  1: bulgogi
+  2: doenjang-jjigae
+  3: donkkaseu
+  4: fried-egg
+  5: galbitang
+  6: gimbap
+  7: hamburger
+  8: japchae
+  9: jeyuk-bokkeum
+  10: jjajangmyeon
+  11: jjamppong
+  12: kalguksu
+  13: kimchi-jjigae
+  14: mul-naengmyeon
+  15: pizza
+  16: ramyeon
+  17: rice
+  18: samgyeopsal
+  19: sausage
+  20: spaghetti
+  21: sundubu-jjigae
+  22: tteokbokki
