@@ -5,27 +5,39 @@
 
 한국 음식 사진에서 음식을 찾아 종류를 알아내고 칼로리를 추정하는 **하이브리드 딥러닝 파이프라인**.
 
+검출 박스 수에 따라 단일/다중 경로로 자동 분기한다.
+
 ```
-이미지 ─▶ [1단계] YOLO11 검출 ─▶ 음식 영역 bbox
-                                  │ 각 bbox 크롭
-                                  ▼
-            [2단계] EfficientNet-B0 분류 ─▶ 음식 종류(23종) + 확신도
-                                  │ 검출 박스 1개 = 1인분
-                                  ▼
-                  kcal_per_serving 합산 ─▶ 음식별 kcal + 총 칼로리
+이미지 ─▶ [1단계] YOLO11n 검출(conf 0.35, CPU) ─▶ 음식 영역 bbox 들
+                                  │
+        ┌─────────────────────────┴──────────────────────────┐
+        ▼ 박스 0~1개                                          ▼ 박스 2개 이상
+ [단일 경로] 전체 이미지를 그대로            [다중 경로] 박스별 crop(각 변 10% 패딩,
+ EfficientNet-B0 로 분류                     경계 clip) → EfficientNet-B0 분류
+ (= 기존 검증된 단일 분류 동작 보존)                          │
+        │                                                    ▼
+        ▼                                          항목별 kcal + 총합(중복 박스 제외)
+ 음식 1종 + 1인분 kcal
 ```
+
+- **최종 음식 종류는 항상 2단계 분류기가 결정**한다. YOLO 가 본 종류(`yolo_class`)는 참고 표시용이다.
+- **이중 합산 방지**: 다중 경로에서 클래스 무관 **IoU > 0.6** 으로 겹치는 박스는 conf 높은 것만 남겨,
+  같은 음식을 두 번 세어 칼로리가 과대 합산되는 것을 막는다.
+- 칼로리는 **박스 1개를 표준 1인분**으로 보고 `kcal_per_serving` 을 합산한다(별도 양 회귀 없음).
 
 ## 왜 하이브리드인가
 
 검출(localization)과 분류(classification)를 **한 모델에 모두 맡기지 않고 분리**했다.
 
-- **YOLO11 (검출)** — 한 접시 위 여러 음식의 *위치*를 잡는 데 집중한다. 단일 클래스(`food`)만
-  검출하므로 라벨링이 단순하고("음식이면 박스"), 종류 라벨 없이도 검출기를 학습할 수 있다.
-- **EfficientNet-B0 (분류)** — 잘라낸 크롭 한 장을 23종 중 하나로 분류한다. 미세한 종류 구분이라는
-  더 어려운 일에만 집중하므로, 폴더 기반 분류 데이터(`<class>/*.jpg`)로 쉽게 학습/교체할 수 있다.
+- **YOLO11n (검출)** — 한 접시 위 여러 음식의 *위치*를 잡는 데 집중한다. 23종으로 학습하지만
+  하이브리드 추론에서 종류 판단은 분류기에 맡기고, 검출기 출력은 음식 영역 박스로만 쓴다.
+- **EfficientNet-B0 (분류)** — 잘라낸 크롭(또는 단일 경로에서는 전체 이미지) 한 장을 23종 중
+  하나로 분류한다. 미세한 종류 구분이라는 더 어려운 일에만 집중하므로, 폴더 기반 분류
+  데이터(`<class>/*.jpg`)로 쉽게 학습/교체할 수 있다.
 
-각 단계를 독립적으로 학습·교체·평가할 수 있어 유지보수와 디버깅이 쉽다.
-칼로리는 **검출된 박스 1개를 표준 1인분으로 보고** `kcal_per_serving` 을 합산한다(별도 양 회귀 없음).
+각 단계를 독립적으로 학습·교체·평가할 수 있어 유지보수와 디버깅이 쉽다. 검출이 음식을 1개
+이하로 잡으면 전체 이미지를 그대로 분류하는 **검증된 단일 경로**로 폴백하므로, 검출 실패가
+기존 단일 분류 성능을 떨어뜨리지 않는다.
 
 > **단일 진실 공급원:** 클래스 인덱스(0~22)·이름·칼로리는 모두 `food_calories.json` 이 정한다.
 > JSON 의 항목 순서 = 클래스 인덱스이고, 분류 데이터 폴더 이름은 각 항목의 영문명(`english`)을 쓴다.
@@ -81,35 +93,53 @@
 
 클래스별 이미지 수 편차가 커서(최다:최소 ≈ **8:1**) 학습 단계에서 clamp(max=3) 역빈도 클래스 가중치로 보정합니다(아래 [학습 결과](#학습-결과) 참고).
 
-### 1단계 검출기 데이터 (AI Hub 한식 15종)
+### 1단계 검출기 데이터 (23종 객체탐지)
 
-객체 탐지(YOLO11n)는 AI Hub 한식 15종 중 bbox 라벨이 있는 이미지로 별도 학습합니다. 라벨 가용성이 클래스마다 달라 분포가 불균형합니다.
+객체 탐지(YOLO11n)는 **23종 전체**를 라벨이 있는 이미지로 학습합니다.
+`scripts/build_detector_data.py` 로 재현 가능하며, 두 소스의 bbox 라벨을 YOLO 정규화 포맷으로 변환해
+클래스별 8:1:1(seed 42) 로 분할합니다 — **총 7,765장 / 박스 7,780개**.
 
-| 음식 | 이미지 수 | YOLO 라벨 수 | 라벨 비율 |
-|------|---------|------------|---------|
-| 제육볶음 | 997 | 997 | 100.0% |
-| 떡볶이 | 992 | 706 | 71.2% |
-| 잡채 | 1,000 | 662 | 66.2% |
-| 비빔밥 | 989 | 602 | 60.9% |
-| 물냉면 | 988 | 517 | 52.3% |
-| 김밥 | 986 | 393 | 39.9% |
-| 칼국수 | 997 | 371 | 37.2% |
-| 갈비탕 | 1,000 | 348 | 34.8% |
-| 삼겹살 | 994 | 340 | 34.2% |
-| 불고기 | 999 | 333 | 33.3% |
-| 짜장면 | 858 | 245 | 28.6% |
-| 순두부찌개 | 999 | 152 | 15.2% |
-| 된장찌개 | 998 | 107 | 10.7% |
-| 김치찌개 | 996 | 96 | 9.6% |
-| 라면 | 997 | 53 | 5.3% |
-| **합계** | **14,790** | **5,922** | **40.0%** |
+- **AI Hub 한식 18종**: `crop_area.properties` 의 박스
+- **UEC FOOD-256 5종**(돈까스·밥·소세지·스파게티·햄버거): `bb_info.txt` 의 박스
+- 공통: PIL 로 원본 W·H 를 읽어 정규화, 좌표 `[0,1]` clip, w≤0/h≤0 박스 skip, 한 이미지의 다중 박스 모두 포함
+
+> **데이터 검증 한 줄:** AI Hub `crop_area.properties` 는 통념과 달리 VOC `x1,y1,x2,y2` 가 아니라
+> **`x,y,w,h`(좌상단+너비/높이)** 였다. 원본 이미지 크기로 두 해석을 대조한 결과 XYWH 는 18종 전부에서
+> 범위 위반 0건, VOC 해석은 수백 건의 범위 초과가 나와 포맷을 확정했다(예: 계란후라이 108건). UEC `bb_info.txt` 는 VOC 가 맞아 그대로 사용.
+
+라벨 가용성이 클래스마다 달라 분포가 크게 불균형합니다(최다 977 ↔ 최소 9, 약 **108배**).
+
+| 음식(영문) | 박스 수 | 이미지 수 | 소스 |
+|---|---:|---:|---|
+| jeyuk-bokkeum | 977 | 977 | kfood |
+| tteokbokki | 698 | 698 | kfood |
+| japchae | 662 | 662 | kfood |
+| rice | 626 | 620 | UEC |
+| bibimbap | 597 | 597 | kfood |
+| fried-egg | 565 | 565 | kfood |
+| mul-naengmyeon | 496 | 496 | kfood |
+| gimbap | 385 | 385 | kfood |
+| kalguksu | 360 | 360 | kfood |
+| samgyeopsal | 339 | 339 | kfood |
+| bulgogi | 333 | 333 | kfood |
+| galbitang | 303 | 303 | kfood |
+| hamburger | 242 | 233 | UEC |
+| jjajangmyeon | 211 | 211 | kfood |
+| jjamppong | 166 | 166 | kfood |
+| spaghetti | 151 | 151 | UEC |
+| sundubu-jjigae | 151 | 151 | kfood |
+| donkkaseu | 140 | 140 | UEC |
+| sausage | 118 | 118 | UEC |
+| doenjang-jjigae | 104 | 104 | kfood |
+| kimchi-jjigae | 94 | 94 | kfood |
+| ramyeon | 53 | 53 | kfood |
+| pizza | 9 | 9 | kfood |
+| **합계** | **7,780** | **7,765** | — |
 
 ### 데이터 활용 전략
 
-- **분류기 (EfficientNet-B0)**: AI Hub 18종 + UEC 5종 = **19,096장** (8:1:1 분할)
-- **객체 탐지 (YOLO11n)**: AI Hub 한식 15종 중 라벨이 있는 **5,922장**만 사용
-
-라벨 분포 불균형으로 인해 YOLO 모델은 라벨 풍부한 클래스(제육볶음, 떡볶이 등)에서 성능이 높고, 라벨 부족 클래스(라면, 김치찌개)에서는 성능 저하가 예상됩니다.
+- **분류기 (EfficientNet-B0)**: AI Hub 18종 + UEC 5종 = **19,096장** (8:1:1 분할, 전체 이미지/크롭)
+- **객체 탐지 (YOLO11n)**: bbox 라벨이 있는 **7,765장 / 7,780박스** (23종, 8:1:1 분할)
 
 ## 🎯 데모
 
@@ -173,7 +203,7 @@ python app.py
 ### 향후 개선 방향
 
 - **Out-of-distribution 검출**: 탕수육 사례처럼 학습되지 않은 음식을 높은 신뢰도로 오분류하는 한계를 해결
-- **다중 음식 검출(YOLO)**: 현재는 사진에 한 음식만 있다고 가정. 식판 사진 등 다중 객체 지원
+- **다중 음식 검출(YOLO) — 구현됨**: 검출 박스가 2개 이상이면 박스별 분류 후 칼로리를 합산한다(식판 사진 등). 다만 다중 음식 정량 평가셋 구축은 향후 과제
 - **포션 추정**: 현재는 1인분 평균 칼로리만 제공. 실제 사진의 음식 양에 따른 정확한 칼로리 추정
 
 ## 학습 결과
@@ -253,6 +283,45 @@ python app.py
 2. **소표본 양식 클래스 데이터 보강**: sausage·spaghetti·hamburger 의 test 표본 확대로 지표 안정화
 3. **추가 정규화**: dropout 0.2 → 0.3, mixup α=0.2
 
+## 검출기(YOLO11n) 학습 결과
+
+> 학습은 **Google Colab(T4 GPU)** 에서 수행. ultralytics 기본 하이퍼파라미터 + **patience 20 조기 종료**,
+> **AMP**, **seed 42**, imgsz 640, batch 32. 100 에폭 예정이었으나 **66 에폭에서 조기 종료**되었고
+> 최고 성능은 **epoch 46**(val mAP50 0.873 / mAP50-95 0.646)에서 나왔다. `src/detector/train_yolo.py` 는
+> 이 레시피(`configs/detector_data.yaml`, nc=23)를 그대로 재현한다.
+
+### 성능 요약 (test 786장)
+
+| 지표 | 값 |
+|------|---|
+| mAP50 | **0.867** |
+| mAP50-95 | **0.617** |
+| Precision / Recall | 0.745 / 0.878 |
+
+### 클래스별 분석 — "라벨 부족 → 성능 저하" 예상의 실측 검증
+
+데이터셋 분석에서 *라벨이 적은 클래스(라면·김치찌개 등)의 성능 저하* 를 예상했는데, **일부만 적중**했다.
+
+- **예상과 달리 선방**: 라벨이 가장 적은 축인데도 `kimchi-jjigae` **mAP50 0.927**, `ramyeon` **0.788** 로 잘 나왔다.
+  다만 test 표본이 각각 **10장·6장**뿐이라 지표 분산이 크다(경향으로만 해석).
+- **실제 약점은 라벨 수가 아니라 '의미 혼동 패밀리'**: `bulgogi` **0.656**, `sundubu-jjigae` **0.641**,
+  `sausage` **0.594**(Recall 0.50) 가 하위권 — 분류기 혼동행렬에서 본 양념고기/찌개류 군집과 **동일한 구조**다.
+- `pizza` 는 mAP50 0.995 로 표시되지만 **test 1장**이라 사실상 **평가 불가**다.
+
+| 상위 (mAP50) | 하위 (mAP50) |
+|---|---|
+| pizza 0.995 *(test 1장, 평가불가)* | sausage 0.594 (R 0.50) |
+| bibimbap 0.969 | sundubu-jjigae 0.641 |
+| mul-naengmyeon 0.968 | bulgogi 0.656 |
+| donkkaseu 0.953 | ramyeon 0.788 *(test 6장)* |
+| tteokbokki 0.950 | doenjang-jjigae 0.801 |
+
+### 한계 (정직한 기술)
+
+- **다중 음식은 정량 미검증**: test 셋이 이미지당 박스 1개 구조라 위 mAP 는 단일 음식 기준이다. 다중 음식(여러 박스) 성능은 정성 사례로만 확인했다.
+- **multi 모드 crop 분포 불일치**: 분류기는 전체 이미지로 학습됐는데 multi 경로는 잘라낸 crop 을 입력하므로 정확도가 떨어질 수 있다(예: 갈비탕 그릇이 `kalguksu` 로 오분류된 사례).
+- **pizza 박스 부족**: pizza 는 라벨 박스가 9개뿐이라, 추가 박스를 만드는 pseudo-labeling 은 future work 로 남긴다.
+
 ## 설치
 
 ```bash
@@ -266,17 +335,22 @@ korean-food-calorie/
 ├── infer.py                     # 추론 CLI 진입점
 ├── food_calories.json           # 클래스/칼로리 단일 진실 공급원 (23종)
 ├── configs/
-│   ├── detector.yaml            # 1단계 YOLO 검출기 설정
+│   ├── detector.yaml            # 1단계 YOLO 검출기 설정(23종, Colab 레시피)
+│   ├── detector_data.yaml       #   ultralytics 데이터셋 명세(nc=23)
 │   └── classifier.yaml          # 2단계 분류기 설정
+├── scripts/
+│   ├── build_detector_data.py   # 탐지 데이터 빌드(라벨 변환·8:1:1 분할)
+│   ├── smoke_test.py            # 분류기 스모크
+│   └── smoke_hybrid.py          # 하이브리드(단일/다중) 스모크
 ├── src/
-│   ├── detector/                # 1단계: 음식 영역 검출 (YOLO11)
-│   │   ├── train_yolo.py        #   학습 + dataset.yaml 자동 생성
+│   ├── detector/                # 1단계: 음식 영역 검출 (YOLO11n, 23종)
+│   │   ├── train_yolo.py        #   학습 (configs/detector_data.yaml 사용)
 │   │   └── inference_yolo.py    #   박스 추론 (FoodDetector)
 │   ├── classifier/              # 2단계: 음식 23종 분류 (EfficientNet-B0)
 │   │   ├── dataset.py           #   폴더 기반 Dataset + albumentations
 │   │   ├── model.py             #   torchvision EfficientNet-B0 분류기
 │   │   └── train.py             #   AdamW · CosineAnnealing · AMP · best.pt
-│   ├── pipeline.py              # 검출→crop→분류→kcal 합산 (FoodCaloriePipeline)
+│   ├── pipeline.py              # 하이브리드: 단일/다중 분기 → kcal 합산 (FoodCaloriePipeline)
 │   └── utils.py                 # 시드/설정/로깅/체크포인트 + FoodTable
 └── data/
     ├── detector/                # YOLO 검출 학습 데이터
@@ -289,9 +363,10 @@ korean-food-calorie/
 
 ## 데이터 준비
 
-### 1단계 — 검출기 (YOLO 형식, 단일 클래스 `food`)
+### 1단계 — 검출기 (YOLO 형식, 23종)
 
-이미지와 라벨을 같은 파일명으로 1:1 배치한다.
+`scripts/build_detector_data.py` 가 AI Hub/UEC 라벨을 변환·분할해 아래 구조로 생성한다.
+이미지와 라벨은 같은 파일명으로 1:1 대응한다(파일명은 `<영문클래스>__<원본stem>` 으로 충돌 방지).
 
 ```
 data/detector/
@@ -299,10 +374,15 @@ data/detector/
   labels/{train,val,test}/  *.txt
 ```
 
-라벨(`.txt`) 한 줄 — 모두 0~1 정규화, 단일 클래스이므로 `class_id` 는 항상 `0`:
+라벨(`.txt`) 한 줄 — 모두 0~1 정규화, `class_id` 는 영문 알파벳순 0~22(bibimbap=0 … tteokbokki=22):
 
 ```
-0 <center_x> <center_y> <width> <height>
+<class_id> <center_x> <center_y> <width> <height>
+```
+
+```bash
+# 탐지 데이터 빌드 (configs/detector_data.yaml 도 함께 생성)
+python scripts/build_detector_data.py
 ```
 
 ### 2단계 — 분류기 (폴더 기반)
@@ -327,17 +407,17 @@ data/classifier/
 ## 학습
 
 ```bash
-# 1단계: 음식 영역 검출기 (configs/classes 로부터 dataset.yaml 자동 생성)
+# 1단계: 음식 23종 검출기 (configs/detector_data.yaml, nc=23 로 학습)
 python -m src.detector.train_yolo --config configs/detector.yaml
 
 # 2단계: 음식 23종 분류기 (AdamW + CosineAnnealing + AMP, best.pt 저장)
 python -m src.classifier.train --config configs/classifier.yaml
 ```
 
-- 검출기: COCO 사전학습 `yolo11s.pt` 에서 fine-tuning, 완료 후 best.pt 를
-  `configs/detector.yaml` 의 `model.weights`(기본 `checkpoints/yolo11_food.pt`)로 복사.
+- 검출기: COCO 사전학습 `yolo11n.pt` 에서 fine-tuning(epochs 100·patience 20·imgsz 640·batch 32·seed 42),
+  완료 후 best.pt 를 `configs/detector.yaml` 의 `model.weights`(기본 `checkpoints/yolo11n_23cls.pt`)로 복사.
 - 분류기: ImageNet 사전학습 EfficientNet-B0 에서 fine-tuning, 검증 top-1 정확도 최고 시점을
-  `configs/classifier.yaml` 의 `train.weights`(기본 `checkpoints/classifier_best.pt`)로 저장.
+  `configs/classifier.yaml` 의 `train.weights`(기본 `checkpoints/best_efficientnet_b0_23.pt`)로 저장.
 
 ## 추론
 
@@ -352,30 +432,38 @@ python infer.py --source path/to/food.jpg --save outputs/annotated.jpg
 python infer.py --source path/to/folder/
 ```
 
-출력 예:
+출력 예(다중 경로 — 박스 2개 이상):
 
 ```json
 {
-  "detections": [
+  "mode": "multi",
+  "items": [
     {
-      "class_id": 2,
-      "name": "비빔밥",
-      "english": "bibimbap",
-      "detect_conf": 0.91,
-      "class_prob": 0.97,
-      "bbox_xyxy": [34.0, 50.5, 410.2, 380.0],
-      "kcal": 600.0,
-      "grams": 450.0
+      "class_id": 7, "english": "hamburger", "korean": "햄버거",
+      "class_prob": 0.978, "kcal": 500.0, "grams": 220.0,
+      "bbox_xyxy": [597.1, 26.3, 892.0, 273.1],
+      "detect_conf": 0.864, "yolo_class": "hamburger"
+    },
+    {
+      "class_id": 15, "english": "pizza", "korean": "피자",
+      "class_prob": 0.801, "kcal": 265.0, "grams": 100.0,
+      "bbox_xyxy": [136.2, 59.1, 475.8, 333.1],
+      "detect_conf": 0.837, "yolo_class": "tteokbokki"
     }
   ],
-  "total_kcal": 600.0,
-  "num_items": 1,
-  "image_shape": [480, 640]
+  "total_kcal": 765.0,
+  "num_items": 2,
+  "num_boxes": 2,
+  "image_shape": [480, 950]
 }
 ```
 
+단일 경로(박스 0~1개)는 `"mode": "single"` 에 `items` 1개(전체 이미지 분류, `bbox_xyxy: null`)를 담는다.
+
+- `mode`        : `single`(전체 이미지 분류) / `multi`(박스별 분류 후 합산)
 - `detect_conf` : 1단계 YOLO 의 음식 검출 신뢰도
-- `class_prob`  : 2단계 분류기의 종류 확신도(softmax)
+- `class_prob`  : 2단계 분류기의 종류 확신도(softmax) — **최종 종류는 이 분류기가 결정**
+- `yolo_class`  : YOLO 가 본 종류(참고용, 최종 결정에는 미사용)
 - `kcal`        : 해당 음식 1인분 평균 칼로리 (`food_calories.json`)
 
 ## 기술 스택
