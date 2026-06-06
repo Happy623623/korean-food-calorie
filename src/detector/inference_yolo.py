@@ -31,6 +31,8 @@ class FoodDetector:
         self.conf = float(m.get("conf", 0.25))
         self.iou = float(m.get("iou", 0.45))
         self.imgsz = int(m.get("imgsz", 640))
+        # 추론 디바이스: 하이브리드 기본은 CPU. (학습용 model.device 와 분리된 키)
+        self.device = m.get("infer_device", "cpu")
 
     def detect(self, source: Any) -> Dict[str, Any]:
         """단일 이미지에서 음식 영역 박스를 검출한다.
@@ -40,22 +42,36 @@ class FoodDetector:
 
         Returns:
             {
-              "boxes": [{"bbox_xyxy": (x1,y1,x2,y2), "confidence": float}, ...],
+              "boxes": [
+                  {"bbox_xyxy": (x1,y1,x2,y2), "confidence": float,
+                   "yolo_class_id": int, "yolo_class": str},   # YOLO 예측 종류(참고용)
+                  ...
+              ],
               "orig_img": numpy 배열 (H, W, 3) BGR,   # 크롭용 원본
               "image_shape": (H, W),
             }
+
+        주의: 하이브리드 설계상 최종 음식 종류는 2단계 분류기가 결정한다.
+        여기서 돌려주는 yolo_class 는 검출기가 본 종류로 "참고 표시"용일 뿐이다.
         """
         results = self.model.predict(
             source=source, conf=self.conf, iou=self.iou,
-            imgsz=self.imgsz, verbose=False,
+            imgsz=self.imgsz, device=self.device, verbose=False,
         )
         result = results[0]
+        names = result.names  # {id: name}
 
         boxes: List[Dict[str, Any]] = []
         for box in result.boxes:
             confidence = float(box.conf.item())
             x1, y1, x2, y2 = (float(v) for v in box.xyxy[0].tolist())
-            boxes.append({"bbox_xyxy": (x1, y1, x2, y2), "confidence": confidence})
+            cls_id = int(box.cls.item()) if box.cls is not None else -1
+            boxes.append({
+                "bbox_xyxy": (x1, y1, x2, y2),
+                "confidence": confidence,
+                "yolo_class_id": cls_id,
+                "yolo_class": names.get(cls_id, str(cls_id)) if isinstance(names, dict) else str(cls_id),
+            })
 
         return {
             "boxes": boxes,

@@ -33,6 +33,8 @@ weights/
 *_smoke.*
 # YOLO 라벨 캐시 (labels/<split>.cache)
 *.cache
+# 추론/스모크 시각화 산출물
+outputs/
 
 # ===== 데이터셋 (용량이 크므로 버전관리 제외, 폴더 구조만 유지) =====
 # 1단계 검출기 (YOLO 형식): data/detector/images|labels/{train,val,test}
