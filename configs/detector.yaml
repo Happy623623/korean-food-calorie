@@ -1,47 +1,72 @@
 # ============================================================
-# 1단계 검출기 설정 — Ultralytics YOLO11 '음식 영역' 검출
+# 1단계 검출기 설정 — Ultralytics YOLO11n '음식 23종' 객체탐지
 #
-# 하이브리드 설계: YOLO 는 음식의 위치(bbox)만 찾고, 종류 분류는 classifier 가 한다.
-# 따라서 클래스는 기본적으로 'food' 하나뿐이다(class_id = 0).
-# src/detector/train_yolo.py / src/detector/inference_yolo.py 가 이 파일을 읽는다.
+# 하이브리드 추론에서는 분류기가 최종 종류를 정하지만, 검출기는 23종으로 학습해
+# 음식 영역을 잘 잡도록 한다(클래스 = food_calories.json 영문 알파벳순 23개).
+# 실제 학습은 Colab 에서 했고(아래 레시피와 동일), 결과 가중치를
+# checkpoints/yolo11n_23cls.pt 로 받아 추론에 사용한다.
+#
+#   학습:  src/detector/train_yolo.py  (이 파일을 읽음)
+#   추론:  src/detector/inference_yolo.py / src/pipeline.py
 # ============================================================
 
 project:
-  name: korean-food-detector
+  name: korean-food-detector-23
   seed: 42
 
-# 검출 클래스 목록. 하이브리드 기본값은 단일 클래스('food').
-# 여기를 여러 개로 늘리면 다중 클래스 검출기로도 학습 가능하지만,
-# 그 경우 분류는 classifier 와 중복되므로 권장하지 않는다.
+# 23종 클래스(영문 알파벳순, bibimbap=0 … tteokbokki=22).
+# configs/detector_data.yaml 의 names 및 분류기 23종 체크포인트와 동일 순서.
 classes:
-  - food
+  - bibimbap
+  - bulgogi
+  - doenjang-jjigae
+  - donkkaseu
+  - fried-egg
+  - galbitang
+  - gimbap
+  - hamburger
+  - japchae
+  - jeyuk-bokkeum
+  - jjajangmyeon
+  - jjamppong
+  - kalguksu
+  - kimchi-jjigae
+  - mul-naengmyeon
+  - pizza
+  - ramyeon
+  - rice
+  - samgyeopsal
+  - sausage
+  - spaghetti
+  - sundubu-jjigae
+  - tteokbokki
 
 data:
-  # YOLO 형식 디렉터리. images/<split> 와 labels/<split> 가 1:1 로 대응한다.
-  #   data/detector/images/train/img001.jpg <-> data/detector/labels/train/img001.txt
-  # 라벨(.txt) 한 줄 형식: <class_id> <cx> <cy> <w> <h>  (모두 0~1 정규화, class_id 는 모두 0)
+  # 학습 데이터 루트(YOLO 표준): images/<split> 와 labels/<split> 가 1:1 대응.
   root: data/detector
   train: images/train
   val: images/val
   test: images/test
-  # train_yolo.py 가 생성할 ultralytics 데이터셋 명세 파일 경로
+  # ultralytics 데이터셋 명세. nc=23 인 configs/detector_data.yaml 를 그대로 사용한다
+  # (Colab 학습 레시피와 동일). 이 파일이 없으면 train_yolo.py 가 위 classes 로 생성.
+  dataset_spec: configs/detector_data.yaml
+  # 자동 생성 시 기록 경로(폴백용)
   dataset_yaml: data/detector/dataset.yaml
 
 model:
-  # 사전학습 가중치(COCO). 처음 학습 시 자동 다운로드된다.
-  #   yolo11n(가벼움) < yolo11s < yolo11m < yolo11l < yolo11x(정확/무거움)
-  base_weights: yolo11s.pt
+  # Colab 레시피: yolo11n + COCO 사전학습에서 fine-tuning.
+  base_weights: yolo11n.pt
   imgsz: 640
   epochs: 100
-  batch: 16                    # GPU 메모리에 맞게 조정 (-1 이면 자동)
-  device: 0                    # 0=첫 GPU(기본) / "cuda:0" / "cpu". CUDA 없으면 train_yolo.py 가 cpu 로 자동 fallback
-  workers: 8                   # Windows 에서 DataLoader 에러나면 0 으로
-  patience: 20                 # early stopping (개선 없는 epoch 수)
-  # 학습 출력 위치: runs/<name>/  (best.pt / last.pt 가 여기에 저장됨)
+  batch: 32
+  patience: 20
+  device: 0                    # 0=첫 GPU. CUDA 없으면 train_yolo.py 가 cpu 로 fallback
+  # 학습 출력: runs/<name>/  (best.pt/last.pt). 그 외 하이퍼파라미터는 ultralytics 기본값.
   project: runs
-  name: yolo11_food_detector
-  # 추론에 사용할 학습 완료 가중치 (train_yolo.py 완료 후 이 경로로 복사됨)
-  weights: checkpoints/yolo11_food.pt
-  # 추론 임계값
-  conf: 0.25                   # confidence threshold
-  iou: 0.45                    # NMS IoU threshold
+  name: yolo11n_food_23cls
+  # 추론용 학습 완료 가중치 (Colab 산출물을 이 경로로 둔다)
+  weights: checkpoints/yolo11n_23cls.pt
+  # 추론 설정 (src/pipeline.py 하이브리드 기본)
+  conf: 0.35                   # 검출 신뢰도 임계값
+  iou: 0.45                    # NMS IoU 임계값
+  infer_device: cpu            # 추론 디바이스(학습 device 와 분리)
