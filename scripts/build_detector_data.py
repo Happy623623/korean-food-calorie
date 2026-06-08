@@ -47,6 +47,9 @@ _DEFAULT_SOURCE = r"C:\Users\yunwo\Documents\aihub_extracted"
 _DEFAULT_TARGET = os.path.join(_PROJECT_ROOT, "data", "detector")
 _DEFAULT_YAML = os.path.join(_PROJECT_ROOT, "configs", "detector_data.yaml")
 _FOOD_TABLE = os.path.join(_PROJECT_ROOT, "food_calories.json")
+# 수동 라벨(테스트 전용) 보존 위치: labels_manual/<english>/crop_area_manual.properties
+# 자동 8:1:1 분할에서 제외하고 항상 test 로만 병합한다(train/val 불변, 재빌드에도 유지).
+_MANUAL_ROOT = os.path.join(_PROJECT_ROOT, "labels_manual")
 
 # 영문 클래스명 → 소스 폴더명(한글, NFC). 분류기 prepare_data 와 동일한 매핑 규칙.
 ENGLISH_TO_FOLDER: Dict[str, str] = {
@@ -140,6 +143,18 @@ def parse_crop_area(path: str) -> Tuple[Dict[str, List[Tuple[int, int, int, int]
     return boxes, malformed
 
 
+def load_manual(english: str) -> Tuple[Dict[str, List[Tuple[int, int, int, int]]], int]:
+    """labels_manual/<english>/crop_area_manual.properties (있으면) → 박스 dict.
+
+    수동 라벨은 AI Hub crop_area 와 동일한 'stem=x,y,w,h' 포맷으로 보존한다.
+    이 stem 들은 자동 8:1:1 분할에서 제외되고 항상 test 로만 병합된다(train/val 불변).
+    """
+    path = os.path.join(_MANUAL_ROOT, english, "crop_area_manual.properties")
+    if not os.path.isfile(path):
+        return {}, 0
+    return parse_crop_area(path)
+
+
 def parse_bb_info(path: str) -> Tuple[Dict[str, List[Tuple[int, int, int, int]]], int]:
     """bb_info.txt → {id: [(x1,y1,x2,y2), ...]}, malformed 줄 수. (VOC, 헤더/멀티박스 처리)"""
     boxes: Dict[str, List[Tuple[int, int, int, int]]] = defaultdict(list)
@@ -230,6 +245,7 @@ def main() -> None:
     skipped_boxes: Dict[str, int] = {}    # 클래스별 skip 박스(malformed + degenerate)
     no_image: Dict[str, int] = {}         # 라벨엔 있으나 이미지 파일 없음
     source_kind: Dict[str, str] = {}      # 'kfood' | 'uec'
+    manual_counts: Dict[str, int] = {}    # 클래스별 수동(test 전용) 이미지 수
 
     for english in classes:
         idx = cls_to_idx[english]
@@ -239,6 +255,7 @@ def main() -> None:
             box_counts[english] = 0; img_counts[english] = 0
             split_img[english] = (0, 0, 0); skipped_boxes[english] = 0
             no_image[english] = 0; source_kind[english] = "-"
+            manual_counts[english] = 0
             continue
         class_dir = os.path.join(args.source, actual_dirname[folder_nfc])
 
@@ -255,35 +272,65 @@ def main() -> None:
             box_counts[english] = 0; img_counts[english] = 0
             split_img[english] = (0, 0, 0); skipped_boxes[english] = 0
             no_image[english] = 0; source_kind[english] = "-"
+            manual_counts[english] = 0
             continue
 
-        # 라벨 있는 이미지별로 YOLO 라벨 라인 구성
-        skipped = malformed
+        # 수동(test 전용) 라벨 로드 → 자동 분할에서 제외하고 나중에 test 로만 병합
+        manual_boxes, manual_malformed = load_manual(english)
+        manual_stems = set(manual_boxes)
+
+        def boxes_to_lines(boxes, W, H):
+            """박스 리스트 → YOLO 라벨 라인. (degenerate 수, 라인) 반환."""
+            out, sk = [], 0
+            for box in boxes:
+                yolo = to_yolo(box, W, H)
+                if yolo is None:
+                    sk += 1
+                    continue
+                xc, yc, nw, nh = yolo
+                out.append(f"{idx} {xc:.6f} {yc:.6f} {nw:.6f} {nh:.6f}")
+            return out, sk
+
+        # 라벨 있는 이미지별로 YOLO 라벨 라인 구성 (수동 stem 은 제외)
+        skipped = malformed + manual_malformed
         missing = 0
         items: List[Tuple[str, List[str]]] = []  # (image_path, [label_lines])
         bcount = 0
         for stem, boxes in raw_boxes.items():
+            if stem in manual_stems:
+                continue  # 수동(test 전용) → 자동 분할에서 제외
             ip = find_image(class_dir, stem)
             if ip is None:
                 missing += 1
                 continue
             with Image.open(ip) as im:
                 W, H = im.size
-            lines: List[str] = []
-            for box in boxes:
-                yolo = to_yolo(box, W, H)
-                if yolo is None:
-                    skipped += 1
-                    continue
-                xc, yc, nw, nh = yolo
-                lines.append(f"{idx} {xc:.6f} {yc:.6f} {nw:.6f} {nh:.6f}")
+            lines, sk = boxes_to_lines(boxes, W, H)
+            skipped += sk
             if lines:
                 items.append((ip, lines))
                 bcount += len(lines)
 
-        # 클래스별 8:1:1 분할 (이미지 단위)
+        # 수동(test 전용) 항목 구성 — 원본은 동일 소스 폴더(class_dir)에서 찾는다
+        manual_items: List[Tuple[str, List[str]]] = []
+        for stem, boxes in manual_boxes.items():
+            ip = find_image(class_dir, stem)
+            if ip is None:
+                missing += 1
+                continue
+            with Image.open(ip) as im:
+                W, H = im.size
+            lines, sk = boxes_to_lines(boxes, W, H)
+            skipped += sk
+            if lines:
+                manual_items.append((ip, lines))
+                bcount += len(lines)
+        manual_items.sort(key=lambda t: os.path.basename(t[0]))
+
+        # 클래스별 8:1:1 분할 (이미지 단위) — 자동분할은 비수동 항목만 대상
         items.sort(key=lambda t: os.path.basename(t[0]))  # 재현성
         tr, va, te = split_files(items, args.train_ratio, args.val_ratio, args.seed)
+        te = list(te) + manual_items  # 수동 라벨은 전부 test 로 병합 (train/val 불변)
 
         for sp, group in zip(SPLITS, (tr, va, te)):
             for ip, lines in group:
@@ -299,10 +346,11 @@ def main() -> None:
                     f.write("\n".join(lines) + "\n")
 
         box_counts[english] = bcount
-        img_counts[english] = len(items)
-        split_img[english] = (len(tr), len(va), len(te))
+        img_counts[english] = len(items) + len(manual_items)
+        split_img[english] = (len(tr), len(va), len(te))  # te 는 수동 병합 포함
         skipped_boxes[english] = skipped
         no_image[english] = missing
+        manual_counts[english] = len(manual_items)
 
     # ===== detector_data.yaml =====
     os.makedirs(os.path.dirname(args.yaml_out), exist_ok=True)
@@ -362,6 +410,11 @@ def main() -> None:
     print(f"박스 합계: {tot['boxes']}  | skip된 박스: {tot['skip']}  | 라벨만 있고 이미지 없음: {tot['noimg']}")
     print(f"출력: {args.target}/images|labels/{{train,val,test}}/")
     print(f"명세: {args.yaml_out}")
+    manual_total = sum(manual_counts.values())
+    if manual_total:
+        mc = {c: n for c, n in manual_counts.items() if n}
+        print(f"수동(test 전용) 병합: {manual_total}장 {mc}  "
+              f"(labels_manual/<class>/crop_area_manual.properties, train/val 제외)")
 
 
 if __name__ == "__main__":

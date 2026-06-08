@@ -124,7 +124,8 @@
 
 객체 탐지(YOLO11n)는 **23종 전체**를 라벨이 있는 이미지로 학습합니다.
 `scripts/build_detector_data.py` 로 재현 가능하며, 두 소스의 bbox 라벨을 YOLO 정규화 포맷으로 변환해
-클래스별 8:1:1(seed 42) 로 분할합니다 — **총 7,765장 / 박스 7,780개**.
+클래스별 8:1:1(seed 42) 로 분할합니다 — 자동 분할 **7,765장 / 박스 7,780개**.
+이후 pizza 평가용으로 **직접 라벨 51장을 test 에만 추가**(아래 [pizza 재평가](#클래스별-분석--라벨-부족--성능-저하-예상의-실측-검증)) → 현재 **7,816장 / 7,831박스**.
 
 - **AI Hub 한식 18종**: `crop_area.properties` 의 박스
 - **UEC FOOD-256 5종**(돈까스·밥·소세지·스파게티·햄버거): `bb_info.txt` 의 박스
@@ -160,13 +161,13 @@
 | doenjang-jjigae | 104 | 104 | kfood |
 | kimchi-jjigae | 94 | 94 | kfood |
 | ramyeon | 53 | 53 | kfood |
-| pizza | 9 | 9 | kfood |
-| **합계** | **7,780** | **7,765** | — |
+| pizza | 60 | 60 | kfood (자동 9 + 수동 test 51) |
+| **합계** | **7,831** | **7,816** | — |
 
 ### 데이터 활용 전략
 
 - **분류기 (EfficientNet-B0)**: AI Hub 18종 + UEC 5종 = **19,096장** (8:1:1 분할, 전체 이미지/크롭)
-- **객체 탐지 (YOLO11n)**: bbox 라벨이 있는 **7,765장 / 7,780박스** (23종, 8:1:1 분할)
+- **객체 탐지 (YOLO11n)**: bbox 라벨이 있는 자동 분할 **7,765장 / 7,780박스** + pizza 수동 test 51장 = **7,816장 / 7,831박스** (23종)
 
 ## 🎯 데모
 
@@ -333,21 +334,30 @@ python app.py
   다만 test 표본이 각각 **10장·6장**뿐이라 지표 분산이 크다(경향으로만 해석).
 - **실제 약점은 라벨 수가 아니라 '의미 혼동 패밀리'**: `bulgogi` **0.656**, `sundubu-jjigae` **0.641**,
   `sausage` **0.594**(Recall 0.50) 가 하위권 — 분류기 혼동행렬에서 본 양념고기/찌개류 군집과 **동일한 구조**다.
-- `pizza` 는 mAP50 0.995 로 표시되지만 **test 1장**이라 사실상 **평가 불가**다.
+- `pizza` 는 원래 test 1장이라 평가 불가였으나, **직접 라벨링한 51장을 test 에 추가(n=52)** 해
+  재평가한 결과 **AP50 0.696**(Recall≈0.00)으로 측정됐다 — "거의 못 잡는다"는 점이 실측으로 확인됐다.
 
 | 상위 (mAP50) | 하위 (mAP50) |
 |---|---|
-| pizza 0.995 *(test 1장, 평가불가)* | sausage 0.594 (R 0.50) |
-| bibimbap 0.969 | sundubu-jjigae 0.641 |
-| mul-naengmyeon 0.968 | bulgogi 0.656 |
-| donkkaseu 0.953 | ramyeon 0.788 *(test 6장)* |
-| tteokbokki 0.950 | doenjang-jjigae 0.801 |
+| bibimbap 0.969 | sausage 0.594 (R 0.50) |
+| mul-naengmyeon 0.968 | sundubu-jjigae 0.641 |
+| donkkaseu 0.953 | bulgogi 0.656 |
+| tteokbokki 0.950 | **pizza 0.696** *(보강 후 n=52)* |
+| japchae 0.946 | ramyeon 0.788 *(test 6장)* |
+
+> **pizza 재평가 방법:** test 1장으로는 평가가 무의미해, AI Hub 피자 원본 **51장을 직접 라벨링**
+> (`labels_manual/pizza/crop_area_manual.properties`)해 **test 에만** 병합했다(n=52).
+> `build_detector_data.py` 가 수동 라벨을 자동 8:1:1 분할에서 제외하고 test 로만 머지하므로
+> **train/val 은 불변**(재빌드에도 유지). 따라서 AP50 0.696 은 **train 7박스 그대로의 현 검출 능력 실측**이며
+> 재학습은 하지 않았다. 보강 test(838장)에서 전체 mAP50 은 0.867→**0.841** — 이전 0.995(n=1)가
+> 과대평가였고, pizza 이미지에서 발생한 타 클래스 false-positive 도 일부 반영된 결과다.
 
 ### 한계 (정직한 기술)
 
 - **다중 음식은 정량 미검증**: test 셋이 이미지당 박스 1개 구조라 위 mAP 는 단일 음식 기준이다. 다중 음식(여러 박스) 성능은 정성 사례로만 확인했다.
 - **multi 모드 crop 분포 불일치**: 분류기는 전체 이미지로 학습됐는데 multi 경로는 잘라낸 crop 을 입력하므로 정확도가 떨어질 수 있다(예: 갈비탕 그릇이 `kalguksu` 로 오분류된 사례).
-- **pizza 박스 부족**: pizza 는 라벨 박스가 9개뿐이라, 추가 박스를 만드는 pseudo-labeling 은 future work 로 남긴다.
+- **pizza 검출 약함(train 7박스)**: test 를 직접 라벨 51장으로 보강해 평가는 가능해졌지만(AP50 0.696),
+  **train 은 여전히 7박스**라 검출 자체가 약하다(Recall≈0). train 박스 보강·pseudo-labeling 은 future work.
 
 ## 설치
 
